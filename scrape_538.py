@@ -42,17 +42,26 @@ def main(state, election):
         # 538 uses state name (and district) abbreviations in their polls.
         # annoyingly, they use different ones for Senate and House polls.
         if election == 'house':
-            new = zip(*results['location'].apply(extract_state_district))
-            results['location'], results['district'] = new
+            # 1) split state-dist. into two columns
+            # 2) change long election mame to short
+            new = zip(*results['state'].apply(extract_state_district))
+            results['state'], results['district'] = new
+            results.loc[results['election'] == 'U.S. House',
+                        'election'] = 'house'
 
         elif election == 'senate':
+            # 1) get senate poll state abbrvs.
+            # 2) change long election name to short
             states = states_dict_senate()
-            results['location'] = results['location'].map(states)
+            results['state'] = results['state'].map(states)
+            results.loc[results['election'] == 'U.S. Senate',
+                        'election'] = 'senate'
             results['district'] = 0
 
         results = results[[
+            'poll_id',
             'election',
-            'location',
+            'state',
             'district',
             'poll_date',
             'pollster',
@@ -92,7 +101,7 @@ def get_state_polling(state, election):
         to show more polls. Continue requesting more polls until we get
         through May.
         '''
-        
+
         # extract soup
         soup = BeautifulSoup(driver.page_source, 'lxml')
 
@@ -170,8 +179,9 @@ def extract_polling(poll_day):
     poll_results = poll_day.find_all('td', {'class': 'answers hide-desktop'})
 
     result_columns = [
+        'poll_id',
         'election',
-        'location',
+        'state',
         'poll_date',
         'pollster',
         'pollster_grade',
@@ -182,7 +192,9 @@ def extract_polling(poll_day):
         'polling'
         ]
 
+    # initialize df to update with each poll
     day_results = pd.DataFrame(columns=result_columns)
+
     for j in range(len(pollster_names)):
         '''
         Loop through each poll on the given day. For each poll, extract:
@@ -213,7 +225,7 @@ def extract_polling(poll_day):
         [br.replace_with(', ') for br in poll_info.select('br')]
         sample = poll_info.text.split(', ')[-1].split(' ')[0]
         voter = poll_info.text.split(', ')[-1].split(' ')[1]
-        location = poll_info.find('span').text.strip(' ')
+        state = poll_info.find('span').text.strip(' ')
 
         # extract strings of candidate + polling and parse
         poll_result = poll_results[j].text.split('%')[:-1]
@@ -222,6 +234,9 @@ def extract_polling(poll_day):
         # extract poll coloring to determine party affiliation
         poll_party = poll_results[j].find_all('div', {'class': 'heat-map'})
         party = hex_to_color(poll_party)
+
+        # give a poll ID comprised of date + number
+        poll_id = str(poll_date) + '-' + str(elec) + '-%s' % j
 
         # initialize df for storing data for a loop
         temp_results = pd.DataFrame(columns=result_columns)
@@ -235,8 +250,10 @@ def extract_polling(poll_day):
         temp_results['voter_type'] = voter
         temp_results['party'] = party
         temp_results['election'] = elec
-        temp_results['location'] = location
-
+        temp_results['state'] = state
+        temp_results['poll_id'] = poll_id
+        
+        # add into the day's results
         day_results = pd.concat([day_results, temp_results], axis=0)
 
     return day_results
@@ -306,15 +323,15 @@ def extract_text_int(string):
     return sep
 
 
-def extract_state_district(location):
+def extract_state_district(state):
     '''
     For House elections, split state-district abbrev. into name and number.
 
     '''
 
     # split by hyphen
-    state_code = location.split('-')[0]
-    district = location.split('-')[1]
+    state_code = state.split('-')[0]
+    district = state.split('-')[1]
 
     # use dict of shortcuts and names to grab full name
     states = states_dict_house()
@@ -367,6 +384,7 @@ def states_dict_house():
     states['OK'] = 'oklahoma'
     states['OR'] = 'oregon'
     states['PA'] = 'pennsylvania'
+    states['PR'] = 'puerto rico'
     states['RI'] = 'rhode island'
     states['SC'] = 'south carolina'
     states['SD'] = 'south dakota'
