@@ -65,12 +65,14 @@ def main(state, election):
             'district',
             'poll_date',
             'pollster',
+            'sponsored',
             'pollster_grade',
             'poll_sample',
             'voter_type',
             'candidate',
             'party',
-            'polling'
+            'polling',
+            'net_polling'
             ]]
 
         # save to csv
@@ -81,7 +83,7 @@ def main(state, election):
 
 def get_state_polling(state, election):
     '''
-    Grab 538's senate polling for a given state as far back as May, 2020. Ask
+    Grab 538's senate polling for a given state as far back as July, 2020. Ask
     the website to load more polls if necessary.
 
     '''
@@ -93,13 +95,13 @@ def get_state_polling(state, election):
     driver = webdriver.Chrome(ChromeDriverManager().install())
     driver.get(base_url + election + '/' + state)
 
-    may = 0
-    while may == 0:
+    stop = 0
+    while stop == 0:
 
         '''
-        Extract html. If the last poll shown is more recent than May, request
+        Extract html. If the last poll shown is more recent than July, request
         to show more polls. Continue requesting more polls until we get
-        through May.
+        through July.
         '''
 
         # extract soup
@@ -109,7 +111,7 @@ def get_state_polling(state, election):
         if soup.text == '404 Not Found':
             polls = 'stop'
             recent = 'your state doesnt matter'
-            may = 1
+            stop = 1
 
         else:
             # get html for each poll on the page
@@ -125,16 +127,16 @@ def get_state_polling(state, election):
                                       {'class': 'day'})[0].attrs['data-date']
             last = datetime.strptime(last, '%Y-%m-%d').date()
 
-            # if last poll was before May 2020, stop
+            # if last poll was before July 2020, stop
             # otherwise show more, unless there's none to show
-            if (last.month < 5) | (last.year < 2020):
-                may = 1
+            if (last.month < 6) | (last.year < 2020):
+                stop = 1
             else:
                 try:
                     driver.find_element_by_class_name('show-more-wrap').click()
                 except common.exceptions.ElementNotInteractableException:
                     print('all polls visible')
-                    may = 1
+                    stop = 1
 
     driver.close()
 
@@ -166,17 +168,8 @@ def extract_polling(poll_day):
             'class': 'type hide-mobile single first last'
             }).text
 
-    # extract html for pollster names for all polls
-    pollster_names = poll_day.find_all('td', {'class': 'pollster'})
-
-    # extract html for 538's pollster grades
-    pollster_grades = poll_day.find_all('div', {'class': 'gradeText'})
-
-    # extract html of all polling information (sample, voter type)
-    poll_infos = poll_day.find_all('td', {'class': 'dates hide-desktop'})
-
-    # extract hmtl of all polling results
-    poll_results = poll_day.find_all('td', {'class': 'answers hide-desktop'})
+    # save all polling results
+    poll_results = poll_day.find_all('tr', {'class': 'visible-row'})
 
     result_columns = [
         'poll_id',
@@ -184,18 +177,20 @@ def extract_polling(poll_day):
         'state',
         'poll_date',
         'pollster',
+        'sponsored',
         'pollster_grade',
         'poll_sample',
         'voter_type',
         'candidate',
         'party',
-        'polling'
+        'polling',
+        'net_polling'
         ]
 
     # initialize df to update with each poll
     day_results = pd.DataFrame(columns=result_columns)
 
-    for j in range(len(pollster_names)):
+    for j in range(len(poll_results)):
         '''
         Loop through each poll on the given day. For each poll, extract:
             - pollster name
@@ -205,34 +200,70 @@ def extract_polling(poll_day):
             - candidate name
             - candidate party
             - candidate performance
+            - net polling
 
         '''
 
         # extract name of pollster
-        pollster_name = pollster_names[j].find_all('a',
-                                                   {'target':
-                                                    '_blank'})[0].text
+        pollster_name = poll_results[j].find_all('a',
+                                                 {'target': '_blank'})[0].text
+        # 538 marks sponsored polls with an '*'
+        if pollster_name[-1] == '*':
+            sponsored = 1
+            pollster_name = pollster_name[:-1]
+        else:
+            sponsored = 0
 
         # extract 538's pollster grade, unless they don't have one
         try:
-            pollster_grade = pollster_grades[j].text
+            pollster_grade = poll_results[j].find_all(
+                'div', {'class': 'gradeText'}
+                )[0].text
         except IndexError:
             pollster_grade = np.nan
 
         # extract strings of poll information (sample, voter type, election)
         # html has only closed <br> tags, so replace w/ commas to separate
-        poll_info = poll_infos[j]
+        poll_info = poll_results[j].find_all(
+            'td', {'class': 'dates hide-desktop'}
+            )[0]
         [br.replace_with(', ') for br in poll_info.select('br')]
         sample = poll_info.text.split(', ')[-1].split(' ')[0]
         voter = poll_info.text.split(', ')[-1].split(' ')[1]
         state = poll_info.find('span').text.strip(' ')
 
         # extract strings of candidate + polling and parse
-        poll_result = poll_results[j].text.split('%')[:-1]
+        results = poll_results[j].find_all(
+            'td', {'class': 'answers hide-desktop'}
+            )
+        poll_result = results[0].text.split('%')[:-1]
         candidate, polling = candidate_polling(poll_result)
 
+        # find net polling difference
+        # if not dem, rep, or ind leading, then even
+        try:
+            net = poll_results[j].find_all(
+                'td', {'class': 'net hide-mobile dem'}
+                )[0].text
+        except IndexError:
+            try:
+                net = poll_results[j].find_all(
+                    'td', {'class': 'net hide-mobile rep'}
+                    )[0].text
+            except IndexError:
+                try:
+                    net = poll_results[j].find_all(
+                        'td', {'class': 'net hide-mobile ind'}
+                        )[0].text
+                except IndexError:
+                    net = 0
+        # drop '+'
+        net = int(net)
+
         # extract poll coloring to determine party affiliation
-        poll_party = poll_results[j].find_all('div', {'class': 'heat-map'})
+        poll_party = poll_results[j].find_all(
+            'td', {'class': 'answers hide-desktop'}
+            )
         party = hex_to_color(poll_party)
 
         # give a poll ID comprised of date + number
@@ -243,16 +274,18 @@ def extract_polling(poll_day):
 
         temp_results['candidate'] = candidate
         temp_results['polling'] = polling
+        temp_results['net_polling'] = net
         temp_results['poll_date'] = poll_date
         temp_results['pollster'] = pollster_name
+        temp_results['sponsored'] = sponsored
         temp_results['pollster_grade'] = pollster_grade
-        temp_results['poll_sample'] = sample
+        temp_results['poll_sample'] = int(sample.replace(',', ''))
         temp_results['voter_type'] = voter
         temp_results['party'] = party
         temp_results['election'] = elec
         temp_results['state'] = state
         temp_results['poll_id'] = poll_id
-        
+
         # add into the day's results
         day_results = pd.concat([day_results, temp_results], axis=0)
 
@@ -292,11 +325,15 @@ def hex_to_color(poll_party):
         - Ind. has highest green value
 
     '''
+
+    # filter to colormap data
+    filt = poll_party[0].find_all('div', {'class': 'heat-map'})
+
     r, g, b = [], [], []
-    for c in range(len(poll_party)):
+    for c in range(len(filt)):
 
         # extract hex color
-        hex_color = poll_party[c].attrs['style'].split(':')[1][:-1]
+        hex_color = filt[c].attrs['style'].split(':')[1][:-1]
 
         # convert to rgb
         rgb = ImageColor.getcolor(hex_color, 'RGB')
@@ -462,9 +499,9 @@ def states_dict_senate():
 
 
 if __name__ == "__main__":
-        
+
     # set state & election type
     state = ''
-    election = 'house'
-    
+    election = 'senate'
+
     main(state, election)
