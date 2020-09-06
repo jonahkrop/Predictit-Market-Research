@@ -13,8 +13,8 @@ from PIL import ImageColor
 from time import sleep
 
 '''
-Go to a predictit market website based on the state, election type, and 
-district (where applicable). Choose a time frame for which to download 
+Go to a predictit market website based on the state, election type, and
+district (where applicable). Choose a time frame for which to download
 and clean up a .csv including prices and trade volumes for each party.
 
 '''
@@ -22,9 +22,9 @@ and clean up a .csv including prices and trade volumes for each party.
 
 def main(url, save_name, date_range):
     ''' Turn a Predicit.com market into a .csv of pricing & trading info.
-    
-    Take a url and date range, and download a .csv of prices and trading 
-    volume for the relevant predictit.com market. Also, clean up the .csv 
+
+    Take a url and date range, and download a .csv of prices and trading
+    volume for the relevant predictit.com market. Also, clean up the .csv
     a little bit, rename it, and deposit it in my projects folder.
 
     '''
@@ -57,7 +57,7 @@ def main(url, save_name, date_range):
 
 def download_market(url, date_range):
     ''' Use a URL to download a Predicit.com market and clean into a .csv.
-    
+
     Download a .csv of market prices and trading volume for a given state,
     election, and time frame. Also grab the name of the market to easily
     access the csv.
@@ -65,7 +65,7 @@ def download_market(url, date_range):
     '''
 
     # open up chrome
-    driver = webdriver.Chrome(ChromeDriverManager().install())
+    driver = webdriver.Chrome()
     driver.get(url)
 
     # allow page to load
@@ -122,7 +122,7 @@ def convert_price(price):
 def cleanup_predictit(market):
     '''
     Clean up .csv downloaded from predictit.
-    
+
         - convert 'Date' column to datetime
         - drop unneccesary price columns
         - rename resulting columns
@@ -150,7 +150,7 @@ def cleanup_predictit(market):
 
 
 if __name__ == "__main__":
-    
+
     # set download folder path
     downloads = '/Users/JonahKrop/Downloads/'
 

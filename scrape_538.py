@@ -5,12 +5,12 @@ import numpy as np
 import re
 import unidecode
 
-from time import sleep
+# from time import sleep
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium import common
 from datetime import datetime
-from webdriver_manager.chrome import ChromeDriverManager
+# from webdriver_manager.chrome import ChromeDriverManager
 from PIL import ImageColor
 
 
@@ -92,7 +92,7 @@ def get_state_polling(state, election):
     base_url = 'https://projects.fivethirtyeight.com/polls/'
 
     # open up chrome
-    driver = webdriver.Chrome(ChromeDriverManager().install())
+    driver = webdriver.Chrome()
     driver.get(base_url + election + '/' + state)
 
     stop = 0
@@ -501,7 +501,5 @@ def states_dict_senate():
 if __name__ == "__main__":
 
     # set state & election type
-    state = ''
-    election = 'senate'
-
-    main(state, election)
+    main('', 'senate')
+    main('', 'house')

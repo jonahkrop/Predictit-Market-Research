@@ -10,8 +10,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 from time import sleep
 
 '''
-Go to a predictit market website based on the state, election type, and 
-district (where applicable). Choose a time frame for which to download 
+Go to a predictit market website based on the state, election type, and
+district (where applicable). Choose a time frame for which to download
 and clean up a .csv including prices and trade volumes for each party.
 
 '''
@@ -54,7 +54,7 @@ def main(url, date_range):
 
 
 def download_market(url, date_range):
-    ''' 
+    '''
     Use a URL to download a Predicit.com market and clean into a .csv.
 
     Download a .csv of market prices and trading volume for a given state,
@@ -64,7 +64,7 @@ def download_market(url, date_range):
     '''
 
     # open up chrome
-    driver = webdriver.Chrome(ChromeDriverManager().install())
+    driver = webdriver.Chrome()
     driver.get(url)
 
     # allow page to load
