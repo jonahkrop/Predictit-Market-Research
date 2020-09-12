@@ -17,12 +17,76 @@ and clean up a .csv including prices and trade volumes for each party.
 '''
 
 
-def main(url, date_range):
-    ''' Turn a Predicit.com market into a .csv of pricing & trading info.
+def main():
+    '''
+    Turn a Predicit.com market into a .csv of pricing & trading info.
 
     Take a url and date range, and download a .csv of prices and trading
     volume for the relevant predictit.com market. Also, clean up the .csv
     a little bit, rename it, and deposit it in my projects folder.
+
+    '''
+
+    # set how far back to get data
+    date_range = '30d'  # ['24hr', '7d', '30d', '90d']
+
+    # get all urls
+    urls = pd.read_csv('predictit_market_urls.csv')
+
+    # file save name
+    save_name = 'all_predictit_markets.csv'
+
+    market_cols = [
+        'election',
+        'state',
+        'district',
+        'incumbent',
+        'contract',
+        'volume',
+        'market_date',
+        'price'
+        ]
+
+    # save all markets into one .csv
+    all_markets = pd.DataFrame(columns=market_cols)
+
+    # loop through each URL
+    for i in range(len(urls)):
+
+        # save data about the market
+        url = urls.market_url.iloc[i]
+        state = urls.state.iloc[i]
+        district = urls.district.iloc[i]
+        election = urls.election.iloc[i]
+        incumbent = urls.incumbent.iloc[i]
+
+        # download market & clean the data
+        market = data_prep(url, date_range)
+
+        # if market url was invalid, skip to next
+        if type(market) == str:
+            continue
+
+        # otherwise add in market data & save with the rest
+        else:
+            market['election'] = election
+            market['state'] = state
+            market['district'] = district
+            market['incumbent'] = incumbent
+
+            all_markets = pd.concat([all_markets, market[market_cols]], axis=0)
+
+    # save cleaned predictit markets to csv
+    save_path = projects + save_name
+    all_markets.to_csv(save_path, index=False)
+
+
+def data_prep(url, date_range):
+    '''
+    Take a market url and date range and download the market data.
+
+    For a given market: send the request to download, handle the
+    file naming and directory, and send the data to be cleaned up a little.
 
     '''
 
@@ -64,7 +128,10 @@ def download_market(url, date_range):
     '''
 
     # open up chrome
-    driver = webdriver.Chrome()
+    driver = webdriver.Chrome(
+        executable_path=
+        '/Users/JonahKrop/Documents/Projects/predictit/chromedriver'
+        )
     driver.get(url)
 
     # allow page to load
@@ -92,7 +159,7 @@ def download_market(url, date_range):
         name = 'no_market'
 
     # allow time to download
-    sleep(3)
+    sleep(2)
 
     driver.quit()
 
@@ -151,56 +218,10 @@ def cleanup_predictit(market):
     return market
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    # set download folder path
-    downloads = '/Users/JonahKrop/Downloads/'
+# set downloads & project folder paths
+downloads = '/Users/JonahKrop/Downloads/'
+projects = '/Users/JonahKrop/Documents/Projects/predictit/'
 
-    # set project folder path
-    projects = '/Users/JonahKrop/Documents/Projects/predictit/'
-
-    # set how far back to get data
-    date_range = '30d'  # ['24hr', '7d', '30d', '90d']
-
-    # get all urls
-    urls = pd.read_csv('predictit_market_urls.csv')
-
-    # file save name
-    save_name = 'all_predictit_markets.csv'
-
-    market_cols = [
-        'election',
-        'state',
-        'district',
-        'contract',
-        'volume',
-        'market_date',
-        'price'
-        ]
-
-    # pull down all markets into one .csv
-    all_markets = pd.DataFrame(columns=market_cols)
-    for i in range(len(urls)):
-
-        url = urls.market_url.iloc[i]
-        state = urls.state.iloc[i]
-        district = urls.district.iloc[i]
-        election = urls.election.iloc[i]
-        incumbent = urls.incumbent.iloc[i]
-
-        market = main(url, date_range)
-
-        # if market url was invalid, skip to next
-        if type(market) == str:
-            continue
-        else:
-            market['election'] = election
-            market['state'] = state
-            market['district'] = district
-            market['incumbent'] = incumbent
-
-            all_markets = pd.concat([all_markets, market[market_cols]], axis=0)
-
-    # save cleaned predictit market to csv
-    save_path = projects + save_name
-    all_markets.to_csv(save_path, index=False)
+main()
