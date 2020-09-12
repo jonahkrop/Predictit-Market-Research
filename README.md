@@ -13,4 +13,7 @@ produces the `all_predictit_markets.csv` file.
 
 ## 2) Predict market prices
 
-Use `market_analysis.R` to build market price predictions using a lmer model. Does some data manipulation and merges markets and polling together. then makes predictions using the last month of market data and the previous 2 weeks of polling as relates to a market.
+Use `market_price_modeling.R` to build market price predictions using a lmer model. Does some data manipulation and merges markets and polling together. Uses an estimate for polling error to draw polling from a normal distribution, and simulates market price predictions 250 times to arrive at a set of target markets for the day.
+
+
+Can do these all at once, or run the `daily_execute.py` file which calls all 3 of the above and puts the target markets in a .csv.
